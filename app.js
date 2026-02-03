@@ -13,6 +13,9 @@ const CATEGORIES = {
     other: '其他'
 };
 
+// 默认图标
+const DEFAULT_ICONS = ['📱', '💻', '⌚', '🎧', '📷', '🎮', '👟', '👔', '👜', '🧴', '🛋️', '🏠', '🚲', '⚽', '📚', '🎁', '🎒', '💄', '🧥', '👗'];
+
 // ===== 应用状态 =====
 let state = {
     items: [],
@@ -20,7 +23,9 @@ let state = {
     editingItemId: null,
     syncConfig: null,
     currentSort: { field: 'purchaseDate', order: 'desc' },
-    currentPhoto: null // Base64 encoded photo
+    currentPhoto: null,
+    icons: [...DEFAULT_ICONS],
+    selectedIcon: '📱'
 };
 
 // ===== DOM 元素缓存 =====
@@ -41,19 +46,14 @@ function calculateDays(purchaseDate, retireDate = null) {
     const end = retireDate ? new Date(retireDate) : new Date();
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(diffDays, 1); // 最少1天
+    return Math.max(diffDays, 1);
 }
 
 function calculateDaily(item) {
-    if (item.calcMethod === 'none') {
-        return null;
-    }
-
+    if (item.calcMethod === 'none') return null;
     if (item.calcMethod === 'count') {
         return item.usageCount > 0 ? item.price / item.usageCount : null;
     }
-
-    // 默认按时间计算
     const days = calculateDays(item.purchaseDate, item.retireDate);
     return item.price / days;
 }
@@ -62,22 +62,20 @@ function showToast(message, type = 'success') {
     const toast = $('#toast');
     toast.textContent = message;
     toast.className = `toast ${type} show`;
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 2500);
+    setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 // ===== 数据持久化 =====
 const Storage = {
     ITEMS_KEY: 'valueof_items',
     SYNC_KEY: 'valueof_sync_config',
+    ICONS_KEY: 'valueof_icons',
 
     loadItems() {
         try {
             const data = localStorage.getItem(this.ITEMS_KEY);
             return data ? JSON.parse(data) : [];
         } catch (e) {
-            console.error('加载数据失败:', e);
             return [];
         }
     },
@@ -87,7 +85,6 @@ const Storage = {
             localStorage.setItem(this.ITEMS_KEY, JSON.stringify(items));
             return true;
         } catch (e) {
-            console.error('保存数据失败:', e);
             return false;
         }
     },
@@ -108,6 +105,24 @@ const Storage = {
         } catch (e) {
             return false;
         }
+    },
+
+    loadIcons() {
+        try {
+            const data = localStorage.getItem(this.ICONS_KEY);
+            return data ? JSON.parse(data) : [...DEFAULT_ICONS];
+        } catch (e) {
+            return [...DEFAULT_ICONS];
+        }
+    },
+
+    saveIcons(icons) {
+        try {
+            localStorage.setItem(this.ICONS_KEY, JSON.stringify(icons));
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 };
 
@@ -115,7 +130,6 @@ const Storage = {
 function sortItems(items, sortField, sortOrder) {
     return [...items].sort((a, b) => {
         let valueA, valueB;
-
         switch (sortField) {
             case 'purchaseDate':
                 valueA = new Date(a.purchaseDate).getTime();
@@ -141,12 +155,7 @@ function sortItems(items, sortField, sortOrder) {
                 valueA = 0;
                 valueB = 0;
         }
-
-        if (sortOrder === 'asc') {
-            return valueA - valueB;
-        } else {
-            return valueB - valueA;
-        }
+        return sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
     });
 }
 
@@ -170,9 +179,7 @@ function renderSummary() {
     const totalValue = filteredItems.reduce((sum, item) => sum + item.price, 0);
     $('#total-value').textContent = formatCurrency(totalValue);
 
-    const dailyValues = filteredItems
-        .map(item => calculateDaily(item))
-        .filter(v => v !== null);
+    const dailyValues = filteredItems.map(item => calculateDaily(item)).filter(v => v !== null);
     const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
     $('#total-daily').textContent = formatCurrency(totalDaily) + '/天';
 
@@ -193,7 +200,6 @@ function renderItemsList() {
         ? state.items
         : state.items.filter(item => item.category === state.currentCategory);
 
-    // 应用排序
     filteredItems = sortItems(filteredItems, state.currentSort.field, state.currentSort.order);
 
     if (filteredItems.length === 0) {
@@ -210,11 +216,8 @@ function renderItemsList() {
         const dailyText = daily !== null
             ? (item.calcMethod === 'count' ? formatCurrency(daily) + '/次' : formatCurrency(daily) + '/天')
             : '不计算';
-        const daysText = item.retireDate
-            ? `已使用 ${days} 天`
-            : `使用中 ${days} 天`;
+        const daysText = item.retireDate ? `已使用 ${days} 天` : `使用中 ${days} 天`;
 
-        // 如果有照片，显示照片；否则显示图标
         const iconContent = item.photo
             ? `<img src="${item.photo}" alt="${item.name}">`
             : item.icon;
@@ -257,12 +260,22 @@ function renderSortMenu() {
     });
 }
 
+function renderIconPicker(containerId = 'icon-picker') {
+    const container = $(`#${containerId}`);
+    if (!container) return;
+
+    container.innerHTML = state.icons.map(icon => `
+        <div class="icon-option${icon === state.selectedIcon ? ' selected' : ''}" data-icon="${icon}">${icon}</div>
+    `).join('');
+}
+
 function renderAll() {
     renderSummary();
     renderCategoryTabs();
     renderItemsList();
     renderSyncStatus();
     renderSortMenu();
+    renderIconPicker();
 }
 
 // ===== 表单处理 =====
@@ -271,12 +284,16 @@ function resetForm() {
     $('#item-purchase-date').value = new Date().toISOString().split('T')[0];
     state.editingItemId = null;
     state.currentPhoto = null;
+    state.selectedIcon = state.icons[0] || '📱';
     $('#add-page-title').textContent = '添加物品';
 
-    // 重置图标选择
-    $$('.icon-option').forEach((opt, i) => {
-        opt.classList.toggle('selected', i === 0);
-    });
+    // 更新图标显示
+    $('#current-icon').textContent = state.selectedIcon;
+    renderIconPicker();
+
+    // 折叠图标选择器
+    $('#icon-picker').classList.remove('expanded');
+    $('#icon-picker-toggle').classList.remove('expanded');
 
     // 隐藏使用次数
     $('#usage-count-group').style.display = 'none';
@@ -296,10 +313,10 @@ function populateForm(item) {
     $('#item-usage-count').value = item.usageCount || 1;
     $('#item-note').value = item.note || '';
 
-    // 选择图标
-    $$('.icon-option').forEach(opt => {
-        opt.classList.toggle('selected', opt.dataset.icon === item.icon);
-    });
+    // 设置当前图标
+    state.selectedIcon = item.icon;
+    $('#current-icon').textContent = item.icon;
+    renderIconPicker();
 
     // 显示/隐藏使用次数
     $('#usage-count-group').style.display = item.calcMethod === 'count' ? 'block' : 'none';
@@ -321,12 +338,10 @@ function populateForm(item) {
 }
 
 function getFormData() {
-    const selectedIcon = $('.icon-option.selected');
-
     return {
         name: $('#item-name').value.trim(),
         category: $('#item-category').value,
-        icon: selectedIcon ? selectedIcon.dataset.icon : '📦',
+        icon: state.selectedIcon,
         photo: state.currentPhoto || null,
         price: parseFloat($('#item-price').value) || 0,
         purchaseDate: $('#item-purchase-date').value,
@@ -339,27 +354,10 @@ function getFormData() {
 
 function validateForm() {
     const data = getFormData();
-
-    if (!data.name) {
-        showToast('请输入物品名称', 'error');
-        return false;
-    }
-
-    if (!data.category) {
-        showToast('请选择分类', 'error');
-        return false;
-    }
-
-    if (!data.price || data.price <= 0) {
-        showToast('请输入有效的购买价格', 'error');
-        return false;
-    }
-
-    if (!data.purchaseDate) {
-        showToast('请选择购买日期', 'error');
-        return false;
-    }
-
+    if (!data.name) { showToast('请输入物品名称', 'error'); return false; }
+    if (!data.category) { showToast('请选择分类', 'error'); return false; }
+    if (!data.price || data.price <= 0) { showToast('请输入有效的购买价格', 'error'); return false; }
+    if (!data.purchaseDate) { showToast('请选择购买日期', 'error'); return false; }
     return true;
 }
 
@@ -375,11 +373,7 @@ function saveItem() {
         }
         showToast('物品已更新');
     } else {
-        const newItem = {
-            id: generateId(),
-            ...data
-        };
-        state.items.unshift(newItem);
+        state.items.unshift({ id: generateId(), ...data });
         showToast('物品已添加');
     }
 
@@ -393,38 +387,26 @@ function saveItem() {
 function handlePhotoSelect(file) {
     if (!file) return;
 
-    // 压缩图片
     const reader = new FileReader();
     reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-            // 压缩到最大 300x300
             const canvas = document.createElement('canvas');
             const maxSize = 300;
             let width = img.width;
             let height = img.height;
 
             if (width > height) {
-                if (width > maxSize) {
-                    height *= maxSize / width;
-                    width = maxSize;
-                }
+                if (width > maxSize) { height *= maxSize / width; width = maxSize; }
             } else {
-                if (height > maxSize) {
-                    width *= maxSize / height;
-                    height = maxSize;
-                }
+                if (height > maxSize) { width *= maxSize / height; height = maxSize; }
             }
 
             canvas.width = width;
             canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
 
-            // 转换为 Base64
             state.currentPhoto = canvas.toDataURL('image/jpeg', 0.7);
-
-            // 显示预览
             $('#photo-preview-img').src = state.currentPhoto;
             $('#photo-preview').style.display = 'block';
             $('#photo-upload-btn').style.display = 'none';
@@ -464,6 +446,74 @@ function confirmDelete() {
     hideDeleteModal();
 }
 
+// ===== 图标管理 =====
+function showIconModal() {
+    renderIconManagePicker();
+    $('#icon-modal').classList.add('active');
+}
+
+function hideIconModal() {
+    $('#icon-modal').classList.remove('active');
+}
+
+function renderIconManagePicker() {
+    const container = $('#icon-manage-picker');
+    container.innerHTML = state.icons.map(icon => `
+        <div class="icon-option" data-icon="${icon}" data-deletable="true">${icon}</div>
+    `).join('');
+}
+
+function addNewIcon() {
+    const input = $('#new-icon-input');
+    const newIcon = input.value.trim();
+
+    if (!newIcon) {
+        showToast('请输入图标', 'error');
+        return;
+    }
+
+    if (state.icons.includes(newIcon)) {
+        showToast('图标已存在', 'error');
+        return;
+    }
+
+    state.icons.push(newIcon);
+    Storage.saveIcons(state.icons);
+    input.value = '';
+    renderIconManagePicker();
+    renderIconPicker();
+    showToast('图标添加成功');
+}
+
+function deleteIcon(icon) {
+    if (state.icons.length <= 1) {
+        showToast('至少保留一个图标', 'error');
+        return;
+    }
+
+    state.icons = state.icons.filter(i => i !== icon);
+    Storage.saveIcons(state.icons);
+
+    if (state.selectedIcon === icon) {
+        state.selectedIcon = state.icons[0];
+        $('#current-icon').textContent = state.selectedIcon;
+    }
+
+    renderIconManagePicker();
+    renderIconPicker();
+    showToast('图标已删除');
+}
+
+function resetIcons() {
+    state.icons = [...DEFAULT_ICONS];
+    state.selectedIcon = state.icons[0];
+    Storage.saveIcons(state.icons);
+    $('#current-icon').textContent = state.selectedIcon;
+    renderIconManagePicker();
+    renderIconPicker();
+    showToast('已恢复默认图标');
+}
+
 // ===== GitHub Gist 同步功能 =====
 function showSyncModal() {
     const config = state.syncConfig || {};
@@ -496,53 +546,39 @@ async function uploadToGist() {
 
         const content = JSON.stringify({
             items: state.items,
+            icons: state.icons,
             syncedAt: new Date().toISOString(),
-            version: '1.0.0'
+            version: '1.1.0'
         }, null, 2);
 
         let response;
 
         if (gistId) {
-            // 更新现有 Gist
             response = await fetch(`https://api.github.com/gists/${gistId}`, {
                 method: 'PATCH',
                 headers,
-                body: JSON.stringify({
-                    files: {
-                        'valueof_data.json': { content }
-                    }
-                })
+                body: JSON.stringify({ files: { 'valueof_data.json': { content } } })
             });
         } else {
-            // 创建新 Gist
             response = await fetch('https://api.github.com/gists', {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
                     description: 'ValueOf App Data Backup',
                     public: false,
-                    files: {
-                        'valueof_data.json': { content }
-                    }
+                    files: { 'valueof_data.json': { content } }
                 })
             });
         }
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-
-        // 保存配置
         state.syncConfig = { token, gistId: data.id };
         Storage.saveSyncConfig(state.syncConfig);
-
-        // 更新界面
         $('#sync-gist-id').value = data.id;
         renderSyncStatus();
         hideSyncModal();
-
         showToast('同步成功！');
     } catch (e) {
         showToast('同步失败: ' + e.message, 'error');
@@ -553,15 +589,8 @@ async function downloadFromGist() {
     const token = $('#sync-token').value.trim();
     const gistId = $('#sync-gist-id').value.trim();
 
-    if (!token) {
-        showToast('请输入 GitHub Token', 'error');
-        return;
-    }
-
-    if (!gistId) {
-        showToast('请输入 Gist ID', 'error');
-        return;
-    }
+    if (!token) { showToast('请输入 GitHub Token', 'error'); return; }
+    if (!gistId) { showToast('请输入 Gist ID', 'error'); return; }
 
     showToast('正在拉取...');
 
@@ -573,33 +602,28 @@ async function downloadFromGist() {
             }
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const gist = await response.json();
         const file = gist.files['valueof_data.json'];
-
-        if (!file) {
-            throw new Error('Gist 中没有找到数据文件');
-        }
+        if (!file) throw new Error('Gist 中没有找到数据文件');
 
         const data = JSON.parse(file.content);
-
-        if (!data.items || !Array.isArray(data.items)) {
-            throw new Error('无效的数据格式');
-        }
+        if (!data.items || !Array.isArray(data.items)) throw new Error('无效的数据格式');
 
         state.items = data.items;
         Storage.saveItems(state.items);
 
-        // 保存配置
+        if (data.icons && Array.isArray(data.icons)) {
+            state.icons = data.icons;
+            Storage.saveIcons(state.icons);
+        }
+
         state.syncConfig = { token, gistId };
         Storage.saveSyncConfig(state.syncConfig);
 
         renderAll();
         hideSyncModal();
-
         showToast(`成功拉取 ${data.items.length} 件物品`);
     } catch (e) {
         showToast('拉取失败: ' + e.message, 'error');
@@ -610,8 +634,9 @@ async function downloadFromGist() {
 function exportData() {
     const data = {
         items: state.items,
+        icons: state.icons,
         exportedAt: new Date().toISOString(),
-        version: '1.0.0'
+        version: '1.1.0'
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -621,34 +646,31 @@ function exportData() {
     a.download = `valueof_backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-
     showToast('数据已导出');
 }
 
 function importData(file) {
     const reader = new FileReader();
-
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-
-            if (!data.items || !Array.isArray(data.items)) {
-                throw new Error('无效的数据格式');
-            }
+            if (!data.items || !Array.isArray(data.items)) throw new Error('无效的数据格式');
 
             state.items = data.items;
             Storage.saveItems(state.items);
+
+            if (data.icons && Array.isArray(data.icons)) {
+                state.icons = data.icons;
+                Storage.saveIcons(state.icons);
+            }
+
             renderAll();
             showToast(`成功导入 ${data.items.length} 件物品`);
         } catch (err) {
             showToast('导入失败: ' + err.message, 'error');
         }
     };
-
-    reader.onerror = () => {
-        showToast('读取文件失败', 'error');
-    };
-
+    reader.onerror = () => showToast('读取文件失败', 'error');
     reader.readAsText(file);
 }
 
@@ -656,9 +678,7 @@ function importData(file) {
 function bindEvents() {
     // 底部导航
     $$('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-            navigateTo(item.dataset.page);
-        });
+        item.addEventListener('click', () => navigateTo(item.dataset.page));
     });
 
     // 添加按钮
@@ -684,57 +704,58 @@ function bindEvents() {
         });
     });
 
-    // 分类筛选按钮（顶部卡片）
+    // 分类筛选按钮
     $('#category-filter-btn').addEventListener('click', () => {
         const categories = Object.keys(CATEGORIES);
         const currentIndex = categories.indexOf(state.currentCategory);
-        const nextIndex = (currentIndex + 1) % categories.length;
-        state.currentCategory = categories[nextIndex];
+        state.currentCategory = categories[(currentIndex + 1) % categories.length];
         renderAll();
     });
 
     // 排序按钮
     $('#sort-btn').addEventListener('click', () => {
-        const sortMenu = $('#sort-menu');
-        const sortBtn = $('#sort-btn');
-        sortMenu.classList.toggle('active');
-        sortBtn.classList.toggle('active');
+        $('#sort-menu').classList.toggle('active');
+        $('#sort-btn').classList.toggle('active');
     });
 
     // 排序选项
     $$('.sort-option').forEach(opt => {
         opt.addEventListener('click', () => {
-            state.currentSort = {
-                field: opt.dataset.sort,
-                order: opt.dataset.order
-            };
+            state.currentSort = { field: opt.dataset.sort, order: opt.dataset.order };
             renderAll();
             $('#sort-menu').classList.remove('active');
             $('#sort-btn').classList.remove('active');
         });
     });
 
+    // 图标选择器折叠
+    $('#icon-picker-toggle').addEventListener('click', () => {
+        const toggle = $('#icon-picker-toggle');
+        const picker = $('#icon-picker');
+        toggle.classList.toggle('expanded');
+        picker.classList.toggle('expanded');
+    });
+
     // 图标选择
     $('#icon-picker').addEventListener('click', (e) => {
         const option = e.target.closest('.icon-option');
         if (option) {
-            $$('.icon-option').forEach(opt => opt.classList.remove('selected'));
+            state.selectedIcon = option.dataset.icon;
+            $('#current-icon').textContent = state.selectedIcon;
+            $$('#icon-picker .icon-option').forEach(opt => opt.classList.remove('selected'));
             option.classList.add('selected');
+
+            // 选择后折叠
+            $('#icon-picker-toggle').classList.remove('expanded');
+            $('#icon-picker').classList.remove('expanded');
         }
     });
 
     // 照片上传
-    $('#photo-upload-btn').addEventListener('click', () => {
-        $('#item-photo').click();
-    });
-
+    $('#photo-upload-btn').addEventListener('click', () => $('#item-photo').click());
     $('#item-photo').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            handlePhotoSelect(file);
-        }
+        if (e.target.files[0]) handlePhotoSelect(e.target.files[0]);
     });
-
     $('#photo-remove').addEventListener('click', removePhoto);
 
     // 计算方式切换
@@ -746,8 +767,7 @@ function bindEvents() {
     $('#items-list').addEventListener('click', (e) => {
         const card = e.target.closest('.item-card');
         if (card) {
-            const itemId = card.dataset.id;
-            const item = state.items.find(i => i.id === itemId);
+            const item = state.items.find(i => i.id === card.dataset.id);
             if (item) {
                 populateForm(item);
                 navigateTo('add');
@@ -755,13 +775,11 @@ function bindEvents() {
         }
     });
 
-    // 长按删除（使用右键作为替代）
+    // 长按删除
     $('#items-list').addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const card = e.target.closest('.item-card');
-        if (card) {
-            showDeleteModal(card.dataset.id);
-        }
+        if (card) showDeleteModal(card.dataset.id);
     });
 
     // 删除确认
@@ -774,12 +792,24 @@ function bindEvents() {
     $('#sync-save').addEventListener('click', uploadToGist);
     $('#sync-download').addEventListener('click', downloadFromGist);
 
+    // 图标管理
+    $('#icon-manage-btn').addEventListener('click', showIconModal);
+    $('#icon-modal-close').addEventListener('click', hideIconModal);
+    $('#add-icon-btn').addEventListener('click', addNewIcon);
+    $('#reset-icons-btn').addEventListener('click', resetIcons);
+
+    // 图标管理中删除图标（双击删除）
+    $('#icon-manage-picker').addEventListener('dblclick', (e) => {
+        const option = e.target.closest('.icon-option');
+        if (option) {
+            deleteIcon(option.dataset.icon);
+        }
+    });
+
     // 点击遮罩关闭弹窗
     $$('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.classList.remove('active');
-            }
+            if (e.target === overlay) overlay.classList.remove('active');
         });
     });
 
@@ -795,14 +825,10 @@ function bindEvents() {
     $('#export-btn').addEventListener('click', exportData);
 
     // 导入
-    $('#import-btn').addEventListener('click', () => {
-        $('#import-file').click();
-    });
-
+    $('#import-btn').addEventListener('click', () => $('#import-file').click());
     $('#import-file').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            importData(file);
+        if (e.target.files[0]) {
+            importData(e.target.files[0]);
             e.target.value = '';
         }
     });
@@ -810,19 +836,16 @@ function bindEvents() {
 
 // ===== 初始化 =====
 function init() {
-    // 加载数据
     state.items = Storage.loadItems();
     state.syncConfig = Storage.loadSyncConfig();
+    state.icons = Storage.loadIcons();
+    state.selectedIcon = state.icons[0] || '📱';
 
-    // 设置默认日期
     $('#item-purchase-date').value = new Date().toISOString().split('T')[0];
+    $('#current-icon').textContent = state.selectedIcon;
 
-    // 绑定事件
     bindEvents();
-
-    // 渲染界面
     renderAll();
 }
 
-// 启动应用
 document.addEventListener('DOMContentLoaded', init);
