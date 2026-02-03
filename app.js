@@ -22,7 +22,7 @@ let state = {
     currentCategory: 'all',
     editingItemId: null,
     syncConfig: null,
-    currentSort: { field: 'purchaseDate', order: 'desc' },
+    currentSort: { field: 'daily', order: 'asc' },
     currentPhoto: null,
     icons: [...DEFAULT_ICONS],
     selectedIcon: '📱'
