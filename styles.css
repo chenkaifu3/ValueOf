@@ -108,6 +108,10 @@ body::before {
   display: block;
 }
 
+#page-add.active {
+  display: flex;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -274,43 +278,44 @@ body::before {
   gap: var(--spacing-md);
   cursor: pointer;
   transition: all var(--transition-fast);
-  border-left: 3px solid transparent;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
 }
 
 /* 多色卡片 */
 .item-card:nth-child(6n+1) {
-  border-left-color: #8b5cf6;
-  background: linear-gradient(90deg, rgba(139, 92, 246, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.03) 100%);
+  border-color: rgba(139, 92, 246, 0.35);
 }
 
 .item-card:nth-child(6n+2) {
-  border-left-color: #ec4899;
-  background: linear-gradient(90deg, rgba(236, 72, 153, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(236, 72, 153, 0.03) 100%);
+  border-color: rgba(236, 72, 153, 0.35);
 }
 
 .item-card:nth-child(6n+3) {
-  border-left-color: #06b6d4;
-  background: linear-gradient(90deg, rgba(6, 182, 212, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(6, 182, 212, 0.03) 100%);
+  border-color: rgba(6, 182, 212, 0.35);
 }
 
 .item-card:nth-child(6n+4) {
-  border-left-color: #22c55e;
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.03) 100%);
+  border-color: rgba(34, 197, 94, 0.35);
 }
 
 .item-card:nth-child(6n+5) {
-  border-left-color: #f59e0b;
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.03) 100%);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .item-card:nth-child(6n+6) {
-  border-left-color: #ef4444;
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.03) 100%);
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 .item-card:hover {
-  background: var(--bg-card-hover);
-  transform: translateX(4px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
 .item-card:active {
@@ -435,18 +440,22 @@ body::before {
   transform: scale(0.95);
 }
 
-/* ===== Add Item Page ===== */
-/* ===== Add Item Page Layout ===== */
 #page-add {
-  display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
   padding: 0;
 }
 
-#page-add.active {
-  display: flex;
+#page-add .page-header {
+  flex-shrink: 0;
+  padding: var(--spacing-md);
+  padding-top: calc(var(--safe-area-top) + var(--spacing-md));
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 #page-add .page-header {
