@@ -52,7 +52,8 @@ function calculateDays(purchaseDate, retireDate = null) {
 function calculateDaily(item) {
     if (item.calcMethod === 'none') return null;
     if (item.calcMethod === 'count') {
-        return item.usageCount > 0 ? item.price / item.usageCount : null;
+        // 按次数计的物品不计入日均成本汇总
+        return null;
     }
     const days = calculateDays(item.purchaseDate, item.retireDate);
     return item.price / days;
@@ -649,6 +650,105 @@ function exportData() {
     showToast('数据已导出');
 }
 
+async function exportScreenshot() {
+    showToast('正在生成截图...', 'info');
+
+    // 切换到首页并显示所有物品
+    navigateTo('items');
+    state.currentCategory = 'all';
+    renderAll();
+
+    // 等待渲染完成
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // 创建一个用于截图的容器
+    const container = document.createElement('div');
+    container.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        width: 400px;
+        background: linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 100%);
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        color: #fff;
+    `;
+
+    // 生成截图内容
+    const totalValue = state.items.reduce((sum, item) => sum + item.price, 0);
+    const dailyValues = state.items.map(item => calculateDaily(item)).filter(v => v !== null);
+    const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
+
+    let itemsHtml = '';
+    const sortedItems = sortItems([...state.items], state.currentSort.field, state.currentSort.order);
+
+    sortedItems.forEach((item, index) => {
+        const days = calculateDays(item.purchaseDate, item.retireDate);
+        const daily = calculateDaily(item);
+        const dailyText = daily !== null ? `¥${daily.toFixed(2)}/天` : (item.calcMethod === 'count' ? `¥${(item.price / item.usageCount).toFixed(2)}/次` : '不计入');
+        const colors = ['#8b5cf6', '#ec4899', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444'];
+        const color = colors[index % 6];
+
+        itemsHtml += `
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 10px; background: linear-gradient(135deg, ${color}22 0%, ${color}08 100%); border: 1px solid ${color}55; border-radius: 12px;">
+                <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 10px; font-size: 22px;">${item.icon}</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">${item.name}</div>
+                    <div style="font-size: 12px; color: #888;">使用中 ${days} 天</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 600;">¥${item.price.toLocaleString()}</div>
+                    <div style="font-size: 12px; color: ${color};">${dailyText}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">ValueOf</div>
+            <div style="font-size: 13px; color: #888;">物品价值管理</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-size: 12px; color: #888; margin-bottom: 6px;">总资产</div>
+                <div style="font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">¥${totalValue.toLocaleString()}</div>
+            </div>
+            <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-size: 12px; color: #888; margin-bottom: 6px;">日均成本</div>
+                <div style="font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">¥${totalDaily.toFixed(2)}/天</div>
+            </div>
+        </div>
+        <div style="font-size: 13px; color: #888; margin-bottom: 12px;">${state.items.length} 件物品</div>
+        ${itemsHtml}
+        <div style="text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 11px; color: #666;">生成于 ${new Date().toLocaleDateString('zh-CN')}</div>
+        </div>
+    `;
+
+    document.body.appendChild(container);
+
+    try {
+        const canvas = await html2canvas(container, {
+            backgroundColor: null,
+            scale: 2,
+            logging: false
+        });
+
+        const link = document.createElement('a');
+        link.download = `valueof_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        showToast('截图已保存');
+    } catch (err) {
+        console.error('Screenshot error:', err);
+        showToast('截图失败', 'error');
+    } finally {
+        document.body.removeChild(container);
+    }
+}
+
 function importData(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -823,6 +923,9 @@ function bindEvents() {
 
     // 导出
     $('#export-btn').addEventListener('click', exportData);
+
+    // 导出截图
+    $('#screenshot-btn').addEventListener('click', exportScreenshot);
 
     // 导入
     $('#import-btn').addEventListener('click', () => $('#import-file').click());
