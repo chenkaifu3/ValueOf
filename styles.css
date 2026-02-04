@@ -960,7 +960,7 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: transparent !important;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
@@ -968,14 +968,15 @@ textarea.form-input {
 }
 
 .sort-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent !important;
   color: var(--text-primary);
+  transform: scale(1.1);
 }
 
 .sort-btn.active {
-  background: var(--accent-gradient);
-  border-color: transparent;
-  color: white;
+  background: transparent !important;
+  color: #8b5cf6;
+  transform: scale(1.1);
 }
 
 /* Sort Menu */

@@ -706,17 +706,17 @@ async function exportScreenshot() {
 
     container.innerHTML = `
         <div style="text-align: center; margin-bottom: 24px;">
-            <div style="font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">ValueOf</div>
+            <div style="font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px;">ValueOf</div>
             <div style="font-size: 13px; color: #888;">物品价值管理</div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
             <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
                 <div style="font-size: 12px; color: #888; margin-bottom: 6px;">总资产</div>
-                <div style="font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">¥${totalValue.toLocaleString()}</div>
+                <div style="font-size: 20px; font-weight: 700; color: #fff;">¥${totalValue.toLocaleString()}</div>
             </div>
             <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
                 <div style="font-size: 12px; color: #888; margin-bottom: 6px;">日均成本</div>
-                <div style="font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">¥${totalDaily.toFixed(2)}/天</div>
+                <div style="font-size: 20px; font-weight: 700; color: #fff;">¥${totalDaily.toFixed(2)}/天</div>
             </div>
         </div>
         <div style="font-size: 13px; color: #888; margin-bottom: 12px;">${state.items.length} 件物品</div>
