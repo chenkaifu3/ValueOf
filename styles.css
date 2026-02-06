@@ -205,6 +205,15 @@ body::before {
   border-radius: var(--radius-md);
 }
 
+#total-daily-card {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+#total-daily-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .stat-label {
   font-size: 0.8rem;
   color: var(--text-muted);

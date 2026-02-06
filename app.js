@@ -25,7 +25,8 @@ let state = {
     currentSort: { field: 'daily', order: 'asc' },
     currentPhoto: null,
     icons: [...DEFAULT_ICONS],
-    selectedIcon: '📱'
+    selectedIcon: '📱',
+    summaryMode: 'daily' // 'daily' | 'count'
 };
 
 // ===== DOM 元素缓存 =====
@@ -57,6 +58,13 @@ function calculateDaily(item) {
     }
     const days = calculateDays(item.purchaseDate, item.retireDate);
     return item.price / days;
+}
+
+function calculatePerUse(item) {
+    if (item.calcMethod === 'count' && item.usageCount > 0) {
+        return item.price / item.usageCount;
+    }
+    return null;
 }
 
 function showToast(message, type = 'success') {
@@ -180,9 +188,19 @@ function renderSummary() {
     const totalValue = filteredItems.reduce((sum, item) => sum + item.price, 0);
     $('#total-value').textContent = formatCurrency(totalValue);
 
-    const dailyValues = filteredItems.map(item => calculateDaily(item)).filter(v => v !== null);
-    const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
-    $('#total-daily').textContent = formatCurrency(totalDaily) + '/天';
+    // 根据模式显示
+    const dailyLabel = $('#total-daily').previousElementSibling;
+    if (state.summaryMode === 'daily') {
+        dailyLabel.textContent = '总日均成本';
+        const dailyValues = filteredItems.map(item => calculateDaily(item)).filter(v => v !== null);
+        const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
+        $('#total-daily').textContent = formatCurrency(totalDaily) + '/天';
+    } else {
+        dailyLabel.textContent = '总次数均成本';
+        const countValues = filteredItems.map(item => calculatePerUse(item)).filter(v => v !== null);
+        const totalCount = countValues.reduce((sum, v) => sum + v, 0);
+        $('#total-daily').textContent = formatCurrency(totalCount) + '/次';
+    }
 
     $('#current-category-name').textContent = CATEGORIES[state.currentCategory];
 }
@@ -213,10 +231,15 @@ function renderItemsList() {
 
     list.innerHTML = filteredItems.map(item => {
         const days = calculateDays(item.purchaseDate, item.retireDate);
-        const daily = calculateDaily(item);
-        const dailyText = daily !== null
-            ? (item.calcMethod === 'count' ? formatCurrency(daily) + '/次' : formatCurrency(daily) + '/天')
-            : '不计算';
+
+        let dailyText = '不计算';
+        if (item.calcMethod === 'count') {
+            const perUse = calculatePerUse(item);
+            if (perUse !== null) dailyText = formatCurrency(perUse) + '/次';
+        } else {
+            const daily = calculateDaily(item);
+            if (daily !== null) dailyText = formatCurrency(daily) + '/天';
+        }
         const daysText = item.retireDate ? `已使用 ${days} 天` : `使用中 ${days} 天`;
 
         const iconContent = item.photo
@@ -675,17 +698,38 @@ async function exportScreenshot() {
     `;
 
     // 生成截图内容
+    // 生成截图内容
     const totalValue = state.items.reduce((sum, item) => sum + item.price, 0);
-    const dailyValues = state.items.map(item => calculateDaily(item)).filter(v => v !== null);
-    const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
+
+    let statLabel, statValue, statUnit;
+    if (state.summaryMode === 'daily') {
+        const dailyValues = state.items.map(item => calculateDaily(item)).filter(v => v !== null);
+        const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
+        statLabel = '日均成本';
+        statValue = totalDaily.toFixed(2);
+        statUnit = '/天';
+    } else {
+        const countValues = state.items.map(item => calculatePerUse(item)).filter(v => v !== null);
+        const totalCount = countValues.reduce((sum, v) => sum + v, 0);
+        statLabel = '次数均成本';
+        statValue = totalCount.toFixed(2);
+        statUnit = '/次';
+    }
 
     let itemsHtml = '';
     const sortedItems = sortItems([...state.items], state.currentSort.field, state.currentSort.order);
 
     sortedItems.forEach((item, index) => {
         const days = calculateDays(item.purchaseDate, item.retireDate);
-        const daily = calculateDaily(item);
-        const dailyText = daily !== null ? `¥${daily.toFixed(2)}/天` : (item.calcMethod === 'count' ? `¥${(item.price / item.usageCount).toFixed(2)}/次` : '不计入');
+
+        let dailyText = '不计入';
+        if (item.calcMethod === 'count') {
+            const perUse = calculatePerUse(item);
+            if (perUse !== null) dailyText = `¥${perUse.toFixed(2)}/次`;
+        } else {
+            const daily = calculateDaily(item);
+            if (daily !== null) dailyText = `¥${daily.toFixed(2)}/天`;
+        }
         const colors = ['#8b5cf6', '#ec4899', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444'];
         const color = colors[index % 6];
 
@@ -715,8 +759,8 @@ async function exportScreenshot() {
                 <div style="font-size: 20px; font-weight: 700; color: #fff;">¥${totalValue.toLocaleString()}</div>
             </div>
             <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-                <div style="font-size: 12px; color: #888; margin-bottom: 6px;">日均成本</div>
-                <div style="font-size: 20px; font-weight: 700; color: #fff;">¥${totalDaily.toFixed(2)}/天</div>
+                <div style="font-size: 12px; color: #888; margin-bottom: 6px;">${statLabel}</div>
+                <div style="font-size: 20px; font-weight: 700; color: #fff;">¥${statValue}${statUnit}</div>
             </div>
         </div>
         <div style="font-size: 13px; color: #888; margin-bottom: 12px;">${state.items.length} 件物品</div>
@@ -779,6 +823,12 @@ function bindEvents() {
     // 底部导航
     $$('.nav-item').forEach(item => {
         item.addEventListener('click', () => navigateTo(item.dataset.page));
+    });
+
+    // 切换统计模式
+    $('#total-daily-card').addEventListener('click', () => {
+        state.summaryMode = state.summaryMode === 'daily' ? 'count' : 'daily';
+        renderSummary();
     });
 
     // 添加按钮
