@@ -249,10 +249,13 @@ function renderSummary() {
         const totalDaily = dailyValues.reduce((sum, v) => sum + v, 0);
         $('#total-daily').textContent = formatCurrency(totalDaily) + '/天';
     } else {
-        dailyLabel.textContent = '总次数均成本';
-        const countValues = filteredItems.map(item => calculatePerUse(item)).filter(v => v !== null);
-        const totalCount = countValues.reduce((sum, v) => sum + v, 0);
-        $('#total-daily').textContent = formatCurrency(totalCount) + '/次';
+        dailyLabel.textContent = '总次均成本';
+        // 筛选按次数计算的物品
+        const countItems = filteredItems.filter(item => item.calcMethod === 'count');
+        const totalPrice = countItems.reduce((sum, item) => sum + item.price, 0);
+        const totalUsage = countItems.reduce((sum, item) => sum + (item.usageCount || 1), 0);
+        const avgPerUse = totalUsage > 0 ? totalPrice / totalUsage : 0;
+        $('#total-daily').textContent = formatCurrency(avgPerUse) + '/次';
     }
 
     $('#current-category-name').textContent = CATEGORIES[state.currentCategory];
