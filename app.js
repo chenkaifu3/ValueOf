@@ -199,16 +199,26 @@ function sortItems(items, sortField, sortOrder) {
 }
 
 function updateSortMenuUI() {
-    // Reset all
-    $$('.sort-option').forEach(opt => opt.classList.remove('active'));
+    // Reset all - 强制重绘
+    $$('.sort-option').forEach(opt => {
+        opt.classList.remove('active');
+        // 强制浏览器重绘
+        void opt.offsetWidth;
+    });
 
     // Set active field
     const fieldOpt = $(`.sort-option[data-sort-field="${state.currentSort.field}"]`);
-    if (fieldOpt) fieldOpt.classList.add('active');
+    if (fieldOpt) {
+        fieldOpt.classList.add('active');
+        void fieldOpt.offsetWidth;
+    }
 
     // Set active order
     const orderOpt = $(`.sort-option[data-sort-order="${state.currentSort.order}"]`);
-    if (orderOpt) orderOpt.classList.add('active');
+    if (orderOpt) {
+        orderOpt.classList.add('active');
+        void orderOpt.offsetWidth;
+    }
 }
 
 // ===== 页面导航 =====
@@ -696,7 +706,14 @@ async function downloadFromGist() {
         const file = gist.files['valueof_data.json'];
         if (!file) throw new Error('Gist 中没有找到数据文件');
 
-        const data = JSON.parse(file.content);
+        // 处理content，可能已经是对象或者是字符串
+        let data;
+        if (typeof file.content === 'string') {
+            data = JSON.parse(file.content);
+        } else {
+            data = file.content;
+        }
+
         if (!data.items || !Array.isArray(data.items)) throw new Error('无效的数据格式');
 
         state.items = data.items;
@@ -950,14 +967,45 @@ function bindEvents() {
     });
 
     // 默认模板设置
+    let tplSelectedIcon = '';
+
     $('#default-template-btn').addEventListener('click', () => {
         $('#template-modal').classList.add('active');
         const tpl = state.defaultTemplate;
         $('#tpl-category').value = tpl.category;
         $('#tpl-method').value = tpl.method;
-        $('#tpl-icon').value = tpl.icon;
-        $('#tpl-icon-preview').textContent = tpl.icon || '?';
-        $('#tpl-icon-preview').className = tpl.icon ? '' : ''; // You might want styling here
+        tplSelectedIcon = tpl.icon || state.icons[0];
+        $('#tpl-current-icon').textContent = tplSelectedIcon;
+
+        // 渲染图标选择器
+        renderIconPicker('tpl-icon-picker');
+        // 更新选中状态
+        $$('#tpl-icon-picker .icon-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.icon === tplSelectedIcon);
+        });
+    });
+
+    // 模板图标选择器切换
+    $('#tpl-icon-picker-toggle').addEventListener('click', () => {
+        const toggle = $('#tpl-icon-picker-toggle');
+        const picker = $('#tpl-icon-picker');
+        toggle.classList.toggle('expanded');
+        picker.classList.toggle('expanded');
+    });
+
+    // 模板图标选择
+    $('#tpl-icon-picker').addEventListener('click', (e) => {
+        const option = e.target.closest('.icon-option');
+        if (option) {
+            tplSelectedIcon = option.dataset.icon;
+            $('#tpl-current-icon').textContent = tplSelectedIcon;
+            $$('#tpl-icon-picker .icon-option').forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+
+            // 选择后折叠
+            $('#tpl-icon-picker-toggle').classList.remove('expanded');
+            $('#tpl-icon-picker').classList.remove('expanded');
+        }
     });
 
     $('#tpl-cancel').addEventListener('click', () => {
@@ -968,7 +1016,7 @@ function bindEvents() {
         const newTpl = {
             category: $('#tpl-category').value,
             method: $('#tpl-method').value,
-            icon: $('#tpl-icon').value
+            icon: tplSelectedIcon
         };
         state.defaultTemplate = newTpl;
         Storage.saveDefaultTemplate(newTpl);
@@ -976,10 +1024,7 @@ function bindEvents() {
         showToast('默认模板已更新');
     });
 
-    $('#tpl-icon').addEventListener('input', (e) => {
-        const val = e.target.value;
-        $('#tpl-icon-preview').textContent = val || '?';
-    });
+
 
     // 图标选择器折叠
     $('#icon-picker-toggle').addEventListener('click', () => {

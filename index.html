@@ -410,12 +410,18 @@
         </div>
         <div class="form-group">
           <label class="form-label">默认图标</label>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" class="form-input" id="tpl-icon" placeholder="输入默认 Emoji，如 👗" maxlength="2"
-              style="flex:1;">
-            <div id="tpl-icon-preview"
-              style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 20px;">
-              ?</div>
+          <div class="icon-picker-wrapper">
+            <div class="icon-picker-toggle" id="tpl-icon-picker-toggle">
+              <span class="current-icon" id="tpl-current-icon">📱</span>
+              <span class="toggle-text">点击选择图标</span>
+              <svg class="toggle-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+            <div class="icon-picker" id="tpl-icon-picker">
+              <!-- 图标将由 JS 动态生成 -->
+            </div>
           </div>
         </div>
         <div class="form-group">
