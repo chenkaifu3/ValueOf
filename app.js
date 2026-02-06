@@ -26,6 +26,7 @@ let state = {
     currentPhoto: null,
     icons: [...DEFAULT_ICONS],
     selectedIcon: '📱',
+    defaultTemplate: { category: 'other', icon: '', method: 'time' },
     summaryMode: 'daily' // 'daily' | 'count'
 };
 
@@ -78,7 +79,10 @@ function showToast(message, type = 'success') {
 const Storage = {
     ITEMS_KEY: 'valueof_items',
     SYNC_KEY: 'valueof_sync_config',
+    ITEMS_KEY: 'valueof_items',
+    SYNC_KEY: 'valueof_sync_config',
     ICONS_KEY: 'valueof_icons',
+    TEMPLATE_KEY: 'valueof_default_template',
 
     loadItems() {
         try {
@@ -132,13 +136,35 @@ const Storage = {
         } catch (e) {
             return false;
         }
+    },
+
+    loadDefaultTemplate() {
+        try {
+            const data = localStorage.getItem(this.TEMPLATE_KEY);
+            return data ? JSON.parse(data) : { category: 'other', icon: '', method: 'time' };
+        } catch (e) {
+            return { category: 'other', icon: '', method: 'time' };
+        }
+    },
+
+    saveDefaultTemplate(tpl) {
+        try {
+            localStorage.setItem(this.TEMPLATE_KEY, JSON.stringify(tpl));
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 };
 
 // ===== 排序功能 =====
+// ===== 排序功能 =====
 function sortItems(items, sortField, sortOrder) {
     return [...items].sort((a, b) => {
         let valueA, valueB;
+        // Helper to handle nulls
+        const getValue = (val) => val === null ? (sortOrder === 'asc' ? Infinity : -Infinity) : val;
+
         switch (sortField) {
             case 'purchaseDate':
                 valueA = new Date(a.purchaseDate).getTime();
@@ -157,8 +183,12 @@ function sortItems(items, sortField, sortOrder) {
                 valueB = b.usageCount || 0;
                 break;
             case 'daily':
-                valueA = calculateDaily(a) || Infinity;
-                valueB = calculateDaily(b) || Infinity;
+                valueA = getValue(calculateDaily(a));
+                valueB = getValue(calculateDaily(b));
+                break;
+            case 'perUse':
+                valueA = getValue(calculatePerUse(a));
+                valueB = getValue(calculatePerUse(b));
                 break;
             default:
                 valueA = 0;
@@ -166,6 +196,19 @@ function sortItems(items, sortField, sortOrder) {
         }
         return sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
     });
+}
+
+function updateSortMenuUI() {
+    // Reset all
+    $$('.sort-option').forEach(opt => opt.classList.remove('active'));
+
+    // Set active field
+    const fieldOpt = $(`.sort-option[data-sort-field="${state.currentSort.field}"]`);
+    if (fieldOpt) fieldOpt.classList.add('active');
+
+    // Set active order
+    const orderOpt = $(`.sort-option[data-sort-order="${state.currentSort.order}"]`);
+    if (orderOpt) orderOpt.classList.add('active');
 }
 
 // ===== 页面导航 =====
@@ -305,22 +348,43 @@ function renderAll() {
 // ===== 表单处理 =====
 function resetForm() {
     $('#item-form').reset();
-    $('#item-purchase-date').value = new Date().toISOString().split('T')[0];
     state.editingItemId = null;
     state.currentPhoto = null;
-    state.selectedIcon = state.icons[0] || '📱';
     $('#add-page-title').textContent = '添加物品';
 
-    // 更新图标显示
-    $('#current-icon').textContent = state.selectedIcon;
+    // 应用默认模板
+    const tpl = state.defaultTemplate;
+
+    $('#item-name').value = '';
+    $('#item-category').value = tpl.category || 'other';
+    $('#item-price').value = '';
+    $('#item-purchase-date').value = new Date().toISOString().split('T')[0];
+    $('#item-retire-date').value = '';
+    $('#item-calc-method').value = tpl.method || 'time';
+    $('#item-usage-count').value = '';
+    $('#item-note').value = '';
+
+    // 图标处理
+    if (tpl.icon) {
+        state.selectedIcon = tpl.icon;
+        $('#current-icon').textContent = tpl.icon;
+    } else {
+        state.selectedIcon = state.icons[0];
+        $('#current-icon').textContent = state.selectedIcon;
+    }
     renderIconPicker();
 
     // 折叠图标选择器
     $('#icon-picker').classList.remove('expanded');
     $('#icon-picker-toggle').classList.remove('expanded');
 
-    // 隐藏使用次数
-    $('#usage-count-group').style.display = 'none';
+    // 显示/隐藏 usage count
+    const usageGroup = $('#item-usage-count').closest('.form-group');
+    if ($('#item-calc-method').value === 'count') {
+        usageGroup.style.display = 'block';
+    } else {
+        usageGroup.style.display = 'none';
+    }
 
     // 隐藏照片预览
     $('#photo-preview').style.display = 'none';
@@ -866,16 +930,52 @@ function bindEvents() {
     $('#sort-btn').addEventListener('click', () => {
         $('#sort-menu').classList.toggle('active');
         $('#sort-btn').classList.toggle('active');
+        updateSortMenuUI();
     });
 
     // 排序选项
     $$('.sort-option').forEach(opt => {
         opt.addEventListener('click', () => {
-            state.currentSort = { field: opt.dataset.sort, order: opt.dataset.order };
+            if (opt.dataset.sortField) {
+                state.currentSort.field = opt.dataset.sortField;
+            } else if (opt.dataset.sortOrder) {
+                state.currentSort.order = opt.dataset.sortOrder;
+            }
+            updateSortMenuUI();
             renderAll();
-            $('#sort-menu').classList.remove('active');
-            $('#sort-btn').classList.remove('active');
         });
+    });
+
+    // 默认模板设置
+    $('#default-template-btn').addEventListener('click', () => {
+        $('#template-modal').classList.add('active');
+        const tpl = state.defaultTemplate;
+        $('#tpl-category').value = tpl.category;
+        $('#tpl-method').value = tpl.method;
+        $('#tpl-icon').value = tpl.icon;
+        $('#tpl-icon-preview').textContent = tpl.icon || '?';
+        $('#tpl-icon-preview').className = tpl.icon ? '' : ''; // You might want styling here
+    });
+
+    $('#tpl-cancel').addEventListener('click', () => {
+        $('#template-modal').classList.remove('active');
+    });
+
+    $('#tpl-save').addEventListener('click', () => {
+        const newTpl = {
+            category: $('#tpl-category').value,
+            method: $('#tpl-method').value,
+            icon: $('#tpl-icon').value
+        };
+        state.defaultTemplate = newTpl;
+        Storage.saveDefaultTemplate(newTpl);
+        $('#template-modal').classList.remove('active');
+        showToast('默认模板已更新');
+    });
+
+    $('#tpl-icon').addEventListener('input', (e) => {
+        const val = e.target.value;
+        $('#tpl-icon-preview').textContent = val || '?';
     });
 
     // 图标选择器折叠
@@ -992,6 +1092,7 @@ function init() {
     state.items = Storage.loadItems();
     state.syncConfig = Storage.loadSyncConfig();
     state.icons = Storage.loadIcons();
+    state.defaultTemplate = Storage.loadDefaultTemplate();
     state.selectedIcon = state.icons[0] || '📱';
 
     $('#item-purchase-date').value = new Date().toISOString().split('T')[0];

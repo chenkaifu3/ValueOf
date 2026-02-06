@@ -63,15 +63,19 @@
 
       <!-- 排序菜单 -->
       <div class="sort-menu" id="sort-menu">
-        <div class="sort-menu-title">按日均成本</div>
-        <div class="sort-option active" data-sort="daily" data-order="asc">从低到高 ↑</div>
-        <div class="sort-option" data-sort="daily" data-order="desc">从高到低 ↓</div>
-        <div class="sort-menu-title">按价格</div>
-        <div class="sort-option" data-sort="price" data-order="asc">从低到高 ↑</div>
-        <div class="sort-option" data-sort="price" data-order="desc">从高到低 ↓</div>
-        <div class="sort-menu-title">按购买时间</div>
-        <div class="sort-option" data-sort="purchaseDate" data-order="desc">最新优先 ↓</div>
-        <div class="sort-option" data-sort="purchaseDate" data-order="asc">最早优先 ↑</div>
+        <div class="sort-menu-section">
+          <div class="sort-menu-title">排序字段</div>
+          <div class="sort-option" data-sort-field="daily">日均成本</div>
+          <div class="sort-option" data-sort-field="perUse">次均成本</div>
+          <div class="sort-option" data-sort-field="price">价格</div>
+          <div class="sort-option" data-sort-field="purchaseDate">购买时间</div>
+        </div>
+        <div class="sort-menu-divider"></div>
+        <div class="sort-menu-section">
+          <div class="sort-menu-title">排序方向</div>
+          <div class="sort-option" data-sort-order="desc">从高到低 / 最新</div>
+          <div class="sort-option" data-sort-order="asc">从低到高 / 最早</div>
+        </div>
       </div>
 
       <!-- 物品列表 -->
@@ -227,6 +231,17 @@
               </svg>
             </div>
           </div>
+          <div class="profile-item" id="default-template-btn">
+            <div class="profile-item-left">
+              <div class="profile-item-icon">📝</div>
+              <div class="profile-item-text">默认模板设置</div>
+            </div>
+            <div class="profile-item-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </div>
+          </div>
           <div class="profile-item" id="export-btn">
             <div class="profile-item-left">
               <div class="profile-item-icon">📤</div>
@@ -370,6 +385,51 @@
       <div class="modal-footer">
         <button class="modal-btn cancel" id="icon-modal-close">关闭</button>
         <button class="modal-btn" id="reset-icons-btn">恢复默认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 默认模板设置弹窗 -->
+  <div class="modal-overlay" id="template-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">默认模板设置</h3>
+      </div>
+      <div class="modal-body">
+        <p class="sync-hint">设置添加新物品时的默认值</p>
+        <div class="form-group">
+          <label class="form-label">默认分类</label>
+          <select class="form-select" id="tpl-category">
+            <option value="digital">数码产品</option>
+            <option value="life">生活运动</option>
+            <option value="clothes">衣物鞋包</option>
+            <option value="beauty">护肤美妆</option>
+            <option value="furniture">家具电器</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">默认图标</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" class="form-input" id="tpl-icon" placeholder="输入默认 Emoji，如 👗" maxlength="2"
+              style="flex:1;">
+            <div id="tpl-icon-preview"
+              style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 20px;">
+              ?</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">默认计费方式</label>
+          <select class="form-select" id="tpl-method">
+            <option value="time">按天计算</option>
+            <option value="count">按次数计算</option>
+            <option value="none">不计算</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel" id="tpl-cancel">取消</button>
+        <button class="modal-btn confirm" id="tpl-save">保存</button>
       </div>
     </div>
   </div>

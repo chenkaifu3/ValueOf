@@ -1001,6 +1001,12 @@ textarea.form-input {
   animation: fadeIn 0.2s ease;
 }
 
+.sort-menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: var(--spacing-sm) 0;
+}
+
 .sort-menu.active {
   display: block;
 }
