@@ -717,12 +717,8 @@ async function downloadFromGist() {
         let data;
         // 如果内容被截断，从 raw_url 拉取完整内容
         if (file.truncated) {
-            const rawResponse = await fetch(file.raw_url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
+            // raw_url 是公开的，不需要 Authorization，添加会触发 CORS preflight
+            const rawResponse = await fetch(file.raw_url);
             if (!rawResponse.ok) throw new Error(`无法获取完整文件: HTTP ${rawResponse.status}`);
             data = await rawResponse.json();
         } else {
