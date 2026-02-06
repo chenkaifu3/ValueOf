@@ -809,10 +809,13 @@ async function exportScreenshot() {
         statValue = totalDaily.toFixed(2);
         statUnit = '/天';
     } else {
-        const countValues = state.items.map(item => calculatePerUse(item)).filter(v => v !== null);
-        const totalCount = countValues.reduce((sum, v) => sum + v, 0);
-        statLabel = '次数均成本';
-        statValue = totalCount.toFixed(2);
+        // 筛选按次数计算的物品
+        const countItems = state.items.filter(item => item.calcMethod === 'count');
+        const totalPrice = countItems.reduce((sum, item) => sum + item.price, 0);
+        const totalUsage = countItems.reduce((sum, item) => sum + (item.usageCount || 1), 0);
+        const avgPerUse = totalUsage > 0 ? totalPrice / totalUsage : 0;
+        statLabel = '次均成本';
+        statValue = avgPerUse.toFixed(2);
         statUnit = '/次';
     }
 
@@ -833,9 +836,17 @@ async function exportScreenshot() {
         const colors = ['#8b5cf6', '#ec4899', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444'];
         const color = colors[index % 6];
 
+        // 图标或照片显示
+        const iconContent = item.photo
+            ? `<img src="${item.photo}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 10px;" />`
+            : item.icon;
+        const iconWrapperStyle = item.photo
+            ? "width: 44px; height: 44px; border-radius: 10px; overflow: hidden;"
+            : "width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 10px; font-size: 22px;";
+
         itemsHtml += `
             <div style="display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 10px; background: linear-gradient(135deg, ${color}22 0%, ${color}08 100%); border: 1px solid ${color}55; border-radius: 12px;">
-                <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 10px; font-size: 22px;">${item.icon}</div>
+                <div style="${iconWrapperStyle}">${iconContent}</div>
                 <div style="flex: 1;">
                     <div style="font-weight: 600; margin-bottom: 4px;">${item.name}</div>
                     <div style="font-size: 12px; color: #888;">使用中 ${days} 天</div>
