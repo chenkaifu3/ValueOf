@@ -940,6 +940,9 @@ function bindEvents() {
                 state.currentSort.field = opt.dataset.sortField;
             } else if (opt.dataset.sortOrder) {
                 state.currentSort.order = opt.dataset.sortOrder;
+                // 选完顺序后关闭菜单
+                $('#sort-menu').classList.remove('active');
+                $('#sort-btn').classList.remove('active');
             }
             updateSortMenuUI();
             renderAll();
