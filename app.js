@@ -331,8 +331,16 @@ function renderSyncStatus() {
 
 function renderSortMenu() {
     $$('.sort-option').forEach(opt => {
-        const isActive = opt.dataset.sort === state.currentSort.field &&
-            opt.dataset.order === state.currentSort.order;
+        const field = opt.getAttribute('data-sort-field');
+        const order = opt.getAttribute('data-sort-order');
+
+        let isActive = false;
+        if (field) {
+            isActive = (field === state.currentSort.field);
+        } else if (order) {
+            isActive = (order === state.currentSort.order);
+        }
+
         opt.classList.toggle('active', isActive);
     });
 }
@@ -647,7 +655,7 @@ async function uploadToGist() {
             icons: state.icons,
             syncedAt: new Date().toISOString(),
             version: '1.1.0'
-        }, null, 2);
+        });
 
         let response;
 
@@ -706,12 +714,24 @@ async function downloadFromGist() {
         const file = gist.files['valueof_data.json'];
         if (!file) throw new Error('Gist 中没有找到数据文件');
 
-        // 处理content，可能已经是对象或者是字符串
         let data;
-        if (typeof file.content === 'string') {
-            data = JSON.parse(file.content);
+        // 如果内容被截断，从 raw_url 拉取完整内容
+        if (file.truncated) {
+            const rawResponse = await fetch(file.raw_url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            if (!rawResponse.ok) throw new Error(`无法获取完整文件: HTTP ${rawResponse.status}`);
+            data = await rawResponse.json();
         } else {
-            data = file.content;
+            // 处理content，可能已经是对象或者是字符串
+            if (typeof file.content === 'string') {
+                data = JSON.parse(file.content);
+            } else {
+                data = file.content;
+            }
         }
 
         if (!data.items || !Array.isArray(data.items)) throw new Error('无效的数据格式');
@@ -957,9 +977,11 @@ function bindEvents() {
                 state.currentSort.field = opt.dataset.sortField;
             } else if (opt.dataset.sortOrder) {
                 state.currentSort.order = opt.dataset.sortOrder;
-                // 选完顺序后关闭菜单
-                $('#sort-menu').classList.remove('active');
-                $('#sort-btn').classList.remove('active');
+                // 延迟关闭菜单，让用户看到高亮效果
+                setTimeout(() => {
+                    $('#sort-menu').classList.remove('active');
+                    $('#sort-btn').classList.remove('active');
+                }, 200);
             }
             updateSortMenuUI();
             renderAll();
